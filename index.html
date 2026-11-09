@@ -1,0 +1,284 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f161d"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="BMW Tracker"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-capable" content="yes"><title>BMW Quartals-Tracker</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Design plan — Subject: BMW Group Automotive, Quartalszahlen (EBIT-Marge + Absatz Europa/China). Audience: Analyst/Investor, der Zahlen prüft.
+   Palette: kühles Papier-Grau, Tinte, Blau=Europa, Grün=BEV, Bernstein=China, Rot=Marge. Fonts: IBM Plex Sans (Text) + Plex Mono (Zahlen).
+   Layout: Kopfzeile + Status → KPI-Streifen → Hauptchart → Ableitung (Karten) → Tabelle → Quellen/Update-Hinweis. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --ink:#14202b; --muted:#5b6a78; --line:#dde3e8;
+  --eu:#1c5fb4; --bev:#13805f; --cn:#c77b0a; --mg:#c0392b;
+  --good:#13805f; --warn:#b36b00; --bad:#b3261e; --chip:#e8edf2;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f161d; --surface:#17212b; --ink:#e6edf3; --muted:#93a4b4; --line:#273542;
+  --eu:#6aa6ee; --bev:#3fcf9f; --cn:#f0a73c; --mg:#ff7b6b;
+  --good:#3fcf9f; --warn:#f0a73c; --bad:#ff7b6b; --chip:#1f2c38; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161d; --surface:#17212b; --ink:#e6edf3; --muted:#93a4b4; --line:#273542;
+  --eu:#6aa6ee; --bev:#3fcf9f; --cn:#f0a73c; --mg:#ff7b6b;
+  --good:#3fcf9f; --warn:#f0a73c; --bad:#ff7b6b; --chip:#1f2c38; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif;
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-size:26px;line-height:1.15;margin:0;font-weight:600;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:13px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.mono,td,th.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:flex-end}
+header p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+.status{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted);text-align:right}
+.status b{color:var(--ink);font-weight:500}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:6px}
+.dot.live{background:var(--good)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi,.card,.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-family:"IBM Plex Mono",monospace;font-size:26px;font-weight:500;margin:2px 0;letter-spacing:-.02em}
+.kpi .d{font-size:13px;font-family:"IBM Plex Mono",monospace}
+.up{color:var(--good)}.down{color:var(--bad)}.flat{color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+.legend span.off{opacity:.4;text-decoration:line-through}
+.legend i{width:16px;height:0;border-top:3px solid;display:inline-block}
+.chartbox{position:relative;height:420px}
+.note{font-size:12.5px;color:var(--muted);margin:10px 0 0}
+.ins{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.card{border-left:4px solid var(--muted)}
+.card.good{border-left-color:var(--good)}.card.warn{border-left-color:var(--warn)}.card.bad{border-left-color:var(--bad)}
+.card h3{margin:0 0 4px;font-size:14px;font-weight:600}
+.card p{margin:0;font-size:14px}
+.verdict{font-size:16px;margin:0 0 12px;max-width:75ch;text-wrap:pretty}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:640px}
+th,td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:500;color:var(--muted);font-size:12px}
+td.est{color:var(--muted);font-style:italic}
+tr.latest td{background:var(--chip)}
+.small{font-size:13px;color:var(--muted)}
+.small ul{margin:6px 0 0;padding-left:18px}
+.chip{display:inline-block;background:var(--chip);border-radius:20px;padding:1px 9px;font-size:12px;color:var(--muted)}
+body{margin:0}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:8px}
+.form input,.form button{font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0}
+.form button{background:var(--eu);color:#fff;border:0;cursor:pointer}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>BMW Automotive – Quartals-Tracker</h1>
+      <p>EBIT-Marge, Auslieferungen Europa (gesamt und BEV) und China, abgeleitet aus den veröffentlichten Konzernzahlen.</p>
+    </div>
+    <div class="status" id="status"></div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="panel">
+    <h2>Marge und Absatz in einem Chart</h2>
+    <div class="legend" id="legend"></div>
+    <div class="chartbox"><canvas id="chart" role="img" aria-label="Kombiniertes Liniendiagramm: BMW Automotive EBIT-Marge sowie Auslieferungen Europa, Europa-BEV und China je Quartal"></canvas></div>
+    <p class="note">Linke Achse: Auslieferungen in Tsd. Fahrzeugen · rechte Achse: EBIT-Marge Automobile in %. Zwei Achsen, daher Verläufe nicht über Skalen hinweg vergleichen. Europa-BEV nur dort, wo BMW Werte nennt (Punkte). Marge = berichtet; ein einheitlich veröffentlichtes „bereinigtes“ Quartals-Reihe gibt es nicht.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Ableitung aus den Zahlen</h2>
+    <p class="verdict" id="verdict"></p>
+    <div class="ins" id="insights"></div>
+    <p class="note">Die Ableitung wird bei jedem Laden aus den aktuellen Datenzeilen neu berechnet – sie ist eine regelbasierte Auswertung, keine Anlageempfehlung.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Letzte 8 Quartale</h2>
+    <div class="tw"><table id="tbl"></table></div>
+    <p class="note">Kursiv = von Claude aus veröffentlichten Wachstumsraten oder Kennzahlen abgeleitet, nicht direkt von BMW genannt.</p>
+  </section>
+
+  <section class="panel small">
+    <h2>Neues Quartal eintragen</h2>
+    <p style="margin:0">Die App holt sich neue Zahlen beim Start, beim Zurückkehren und alle 30 Minuten automatisch aus der Datenquelle. Zusätzlich kannst du hier selbst ein Quartal eintragen; das wird nur lokal gespeichert.</p>
+    <form class="form" id="f">
+      <input name="y" type="number" placeholder="Jahr" required><input name="q" type="number" min="1" max="4" placeholder="Quartal" required>
+      <input name="margin" type="number" step="0.1" placeholder="EBIT-Marge %" required><input name="eu" type="number" placeholder="Europa" required>
+      <input name="cn" type="number" placeholder="China" required><input name="euBev" type="number" placeholder="Europa BEV">
+      <input name="ytd" type="number" step="0.1" placeholder="9M/YTD-Marge % (opt.)"><button>Speichern</button>
+    </form>
+    <ul><li id="src">Quelle wird geprüft …</li><li>Basis-Datenstand: Q3 2026, veröffentlicht am 4. November 2026.</li><li>Nächste Termine (voraussichtlich): Q4-Absatz Anfang 2027, Jahreszahlen im März 2027.</li></ul>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</body></html>
+<script>
+(function(){
+// ---------- Basisdaten (Stand 4.11.2026). Neuere Zeilen kommen aus der Datenbank. ----------
+var BASE=[];
+var eu=[220812,151869,275618,264096,238761,265566,220639,223167,220076,213913,196178,247551,215917,232706,221496,272686,227784,232472,219269,267846,241867,255910,239620,278715,236422,260173,235628];
+var cn=[116452,212617,230612,217698,229748,237316,203008,176600,208507,170220,214146,199112,194773,197807,210331,222021,187452,188495,147691,190892,155195,162667,147121,160556,143958,117815,114355];
+var bevMap={16:35800,20:58761,21:59000,22:59600,24:59936,25:81445,26:81941};
+var bevEst={16:1,21:1,22:1};
+var mg=[1.3,-10.4,6.7,7.7,9.8,15.8,7.8,7.7,8.9,8.2,8.9,8.5,12.1,9.2,9.8,8.5,8.8,8.4,2.3,5.5,6.9,5.4,5.2,3.7,5.0,2.3,3.4];
+var adjMap={8:13.2,9:12.0,10:10.1,14:10.8,21:6.5,24:6.2,25:3.5};
+var adjEst={24:1,25:1};
+for(var i=0;i<eu.length;i++){
+  BASE.push({id:(2020+Math.floor(i/4))+'-'+(i%4+1),y:2020+Math.floor(i/4),q:i%4+1,
+    margin:mg[i],adj:adjMap[i]!=null?adjMap[i]:null,adjEst:!!adjEst[i],
+    eu:eu[i],cn:cn[i],euBev:bevMap[i]!=null?bevMap[i]:null,bevEst:!!bevEst[i]});
+}
+var META={published:'2026-11-04',source:'BMW Group Quartalsmitteilung Q3 2026',
+  guidance:{lo:-0.5,hi:0.5,prevLo:1,prevHi:3,ytd:3.5,label:'Prognose 2026: EBIT-Marge Automobile −0,5 % bis +0,5 %'},
+  fcfTarget:2500,fcfYtd:724};
+
+var rows=BASE.slice(), live=false;
+function merge(docs){
+  var m={};BASE.forEach(function(r){m[r.id]=r});
+  docs.forEach(function(d){ if(d&&d.y&&d.q){ var id=d.y+'-'+d.q; m[id]=Object.assign({},m[id]||{},d,{id:id}); }});
+  rows=Object.keys(m).map(function(k){return m[k]}).sort(function(a,b){return a.y*4+a.q-(b.y*4+b.q)});
+}
+var meta=META;
+
+// ---------- Helfer ----------
+function fmt(n,d){ if(n==null||isNaN(n))return '–'; return n.toLocaleString('de-DE',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
+function pct(n,d){ return n==null?'–':fmt(n,d==null?1:d)+' %'; }
+function pp(n){ return (n>0?'+':n<0?'−':'')+fmt(Math.abs(n),1)+' pp'; }
+function yoy(a,b){ return (a==null||b==null||!b)?null:(a/b-1)*100; }
+function ql(r){return 'Q'+r.q+' '+String(r.y).slice(2)}
+function cls(v){return v>0.05?'up':v<-0.05?'down':'flat'}
+function sgn(v){return (v>0?'+':v<0?'−':'')+fmt(Math.abs(v),1)+' %'}
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function sumLast(arr,k,n){var s=0,c=0;for(var i=arr.length-n;i<arr.length;i++){if(arr[i]&&arr[i][k]!=null){s+=arr[i][k];c++}}return c===n?s:null}
+
+// ---------- Rendern ----------
+function renderStatus(){
+  var last=rows[rows.length-1];
+  document.getElementById('status').innerHTML=
+   '<span><span class="dot'+(live?' live':'')+'"></span><b>'+(live?'Live-Datenbank verbunden':'Basis-Datenstand')+'</b></span>'+
+   '<span>Letztes Quartal: <b>'+ql(last)+'</b></span>'+
+   '<span>Veröffentlicht: <b>'+new Date(meta.published).toLocaleDateString('de-DE',{day:'numeric',month:'long',year:'numeric'})+'</b></span>';
+}
+function renderKpis(){
+  var n=rows.length,L=rows[n-1],P=rows[n-5];
+  var dm=P&&P.margin!=null?L.margin-P.margin:null;
+  var items=[
+   ['EBIT-Marge Automobile '+ql(L),pct(L.margin),dm==null?'':pp(dm)+' ggü. Vorjahr',dm==null?0:dm],
+   ['Auslieferungen Europa',fmt(L.eu),P?sgn(yoy(L.eu,P.eu))+' ggü. Vorjahr':'',P?yoy(L.eu,P.eu):0],
+   ['Auslieferungen China',fmt(L.cn),P?sgn(yoy(L.cn,P.cn))+' ggü. Vorjahr':'',P?yoy(L.cn,P.cn):0]
+  ];
+  var lb=null;for(var i=n-1;i>=0;i--){if(rows[i].euBev!=null){lb=i;break}}
+  if(lb!=null){var B=rows[lb],PB=rows[lb-4];
+    var bv=PB&&PB.euBev!=null?yoy(B.euBev,PB.euBev):null;
+    items.push(['Europa-BEV '+ql(B),fmt(B.euBev),(bv!=null?sgn(bv)+' ggü. Vorjahr · ':'')+'Anteil '+fmt(B.euBev/B.eu*100,1)+' %',bv==null?0:bv]);}
+  document.getElementById('kpis').innerHTML=items.map(function(k){
+    return '<div class="kpi"><div class="l">'+k[0]+'</div><div class="v">'+k[1]+'</div><div class="d '+cls(k[3])+'">'+k[2]+'</div></div>'}).join('');
+}
+function insights(){
+  var n=rows.length,L=rows[n-1],P=rows[n-5],out=[];
+  // 1 Marge
+  var dm=L.margin-P.margin, avg4=sumLast(rows,'margin',4)/4, avgP=0;
+  for(var i=n-8;i<n-4;i++)avgP+=rows[i].margin; avgP/=4;
+  out.push({t:dm<-1?'bad':dm<0?'warn':'good',h:'Margin unter Druck',p:ql(L)+': '+pct(L.margin)+' nach '+pct(P.margin)+' im Vorjahresquartal ('+pp(dm)+'). Vier-Quartals-Schnitt '+pct(avg4)+' gegenüber '+pct(avgP)+' in den vier Quartalen davor.'});
+  // 2 Regime
+  var cnt=0;for(var j=n-1;j>=0&&rows[j].margin<5.5;j--)cnt++;
+  var peak=Math.max.apply(null,rows.slice(-16).map(function(r){return r.margin}));
+  out.push({t:cnt>=4?'bad':'warn',h:'Seit '+cnt+' Quartalen unter 5,5 %',p:'Die Marge liegt im Schnitt weit unter dem Hoch der letzten vier Jahre ('+pct(peak)+'). Das Zielband des Konzerns lag zuletzt bei 5–7 %.'});
+  // 3 Guidance
+  var g=meta.guidance, impLo=4*g.lo-3*g.ytd, impHi=4*g.hi-3*g.ytd;
+  out.push({t:'bad',h:'Prognose impliziert schwaches Q4',p:g.label+' (zuvor '+fmt(g.prevLo,1)+'–'+fmt(g.prevHi,1)+' %). Bei 9M-Marge '+pct(g.ytd)+' ergibt sich grob (gleich gewichtete Quartale) eine Q4-Marge von '+fmt(impLo,1)+' % bis '+fmt(impHi,1)+' % – der Großteil ist laut BMW Einmal-/Strukturbelastung (~2,5 pp), dazu Zölle (~1,25 pp).'});
+  // 4 China
+  var c4=sumLast(rows,'cn',4), c4p=0;for(var k=n-8;k<n-4;k++)c4p+=rows[k].cn;
+  var cy=yoy(L.cn,P.cn);
+  out.push({t:cy<-10?'bad':'warn',h:'China bricht weiter ein',p:ql(L)+': '+fmt(L.cn)+' Fahrzeuge ('+sgn(cy)+'). Letzte vier Quartale '+fmt(c4)+' gegenüber '+fmt(c4p)+' davor ('+sgn(yoy(c4,c4p))+'). China-Anteil am Europa+China-Volumen: '+fmt(L.cn/(L.cn+L.eu)*100,0)+' % (vor drei Jahren '+fmt(rows[n-13].cn/(rows[n-13].cn+rows[n-13].eu)*100,0)+' %).'});
+  // 5 Europa BEV
+  var lb=-1;for(var m=n-1;m>=0;m--){if(rows[m].euBev!=null){lb=m;break}}
+  if(lb>=4&&rows[lb-4].euBev!=null){var B=rows[lb],PB=rows[lb-4];
+    out.push({t:'good',h:'Europa: Elektro wächst, Gesamtmarkt stabil',p:ql(B)+': BEV '+fmt(B.euBev)+' ('+sgn(yoy(B.euBev,PB.euBev))+'), Anteil '+fmt(B.euBev/B.eu*100,1)+' % nach '+fmt(PB.euBev/PB.eu*100,1)+' %. Europa gesamt '+sgn(yoy(B.eu,PB.eu))+'.'});}
+  // 6 Divergenz
+  var ey=yoy(L.eu,P.eu);
+  out.push({t:'warn',h:'Volumen-Marge-Schere',p:'Europa '+sgn(ey)+' und China '+sgn(cy)+' im Absatz, aber die Marge fällt '+pp(dm)+'. Der Rückgang liegt damit nicht allein am Volumen, sondern an Zöllen, Mix und Sonderlasten.'});
+  // 7 FCF
+  out.push({t:meta.fcfYtd<meta.fcfTarget*0.4?'warn':'good',h:'Free Cashflow Automobile',p:'9M: '+fmt(meta.fcfYtd)+' Mio. € bei Jahresziel über '+fmt(meta.fcfTarget)+' Mio. € – das Ziel verlangt ein sehr starkes Q4 oder wird verfehlt.'});
+  return out;
+}
+function renderInsights(){
+  var ins=insights(), bad=ins.filter(function(x){return x.t==='bad'}).length;
+  var L=rows[rows.length-1];
+  document.getElementById('verdict').textContent=
+   'Gesamtbild '+ql(L)+': '+(bad>=3?'angespannt. ':'gemischt. ')+'Europa trägt (BEV-Anteil steigt), China und die Marge belasten; die gesenkte Jahresprognose setzt für Q4 eine Marge nahe oder unter null voraus.';
+  document.getElementById('insights').innerHTML=ins.map(function(x){return '<div class="card '+x.t+'"><h3>'+x.h+'</h3><p>'+x.p+'</p></div>'}).join('');
+}
+function renderTable(){
+  var r=rows.slice(-8).reverse();
+  var h='<tr><th>Quartal</th><th class="num">EBIT-Marge</th><th class="num">Bereinigt</th><th class="num">Europa</th><th class="num">davon BEV</th><th class="num">China</th><th class="num">China ggü. VJ</th></tr>';
+  var all=rows;
+  r.forEach(function(x,i){
+    var idx=all.indexOf(x),p=all[idx-4],cy=p?yoy(x.cn,p.cn):null;
+    h+='<tr'+(i===0?' class="latest"':'')+'><td>'+ql(x)+'</td><td>'+pct(x.margin)+'</td><td'+(x.adjEst?' class="est"':'')+'>'+pct(x.adj)+'</td><td>'+fmt(x.eu)+'</td><td'+(x.bevEst?' class="est"':'')+'>'+fmt(x.euBev)+'</td><td>'+fmt(x.cn)+'</td><td class="'+cls(cy)+'">'+(cy==null?'–':sgn(cy))+'</td></tr>';
+  });
+  document.getElementById('tbl').innerHTML=h;
+}
+
+// ---------- Chart ----------
+var chart=null, hidden={};
+function buildChart(){
+  var labels=rows.map(ql);
+  var ds=[
+   {key:'eu',label:'Europa gesamt',data:rows.map(function(r){return r.eu/1000}),color:'--eu',axis:'y',w:2},
+   {key:'bev',label:'Europa BEV',data:rows.map(function(r){return r.euBev!=null?r.euBev/1000:null}),color:'--bev',axis:'y',w:2,span:true,pt:4},
+   {key:'cn',label:'China gesamt',data:rows.map(function(r){return r.cn/1000}),color:'--cn',axis:'y',w:2},
+   {key:'mg',label:'EBIT-Marge Auto (rechts)',data:rows.map(function(r){return r.margin}),color:'--mg',axis:'y1',w:3,dash:[6,3]},
+   {key:'adj',label:'bereinigt (rechts)',data:rows.map(function(r){return r.adj}),color:'--mg',axis:'y1',w:0,pt:5,hollow:true}
+  ];
+  var sets=ds.map(function(d){var c=css(d.color);return {label:d.label,data:d.data,yAxisID:d.axis,borderColor:c,backgroundColor:d.hollow?css('--surface'):c,
+    borderWidth:d.w,borderDash:d.dash||[],pointRadius:d.pt||0,pointHoverRadius:5,pointBorderColor:c,pointBorderWidth:d.hollow?2:1,tension:.25,spanGaps:!!d.span,showLine:d.w>0,hidden:!!hidden[d.key],_key:d.key,_c:c}});
+  if(chart)chart.destroy();
+  var ink=css('--muted'),grid=css('--line');
+  chart=new Chart(document.getElementById('chart'),{type:'line',data:{labels:labels,datasets:sets},options:{
+    responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){var v=c.parsed.y;if(v==null)return null;return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?fmt(v,1)+' %':fmt(v*1000)+' Fzg.')}}}},
+    scales:{
+      x:{grid:{display:false},ticks:{color:ink,maxRotation:0,autoSkip:true,maxTicksLimit:10}},
+      y:{position:'left',min:0,grid:{color:grid},ticks:{color:ink,callback:function(v){return v+' Tsd.'}}},
+      y1:{position:'right',min:-12,max:18,grid:{display:false},ticks:{color:css('--mg'),callback:function(v){return v+' %'}}}
+    }}});
+  var lg=document.getElementById('legend');
+  lg.innerHTML=ds.map(function(d){return '<span data-k="'+d.key+'" class="'+(hidden[d.key]?'off':'')+'"><i style="border-color:'+css(d.color)+';'+(d.dash?'border-top-style:dashed':'')+(d.w===0?'border-top-style:dotted':'')+'"></i>'+d.label+'</span>'}).join('');
+  lg.querySelectorAll('span').forEach(function(s){s.onclick=function(){hidden[s.dataset.k]=!hidden[s.dataset.k];buildChart()}});
+}
+function renderAll(){renderStatus();renderKpis();renderInsights();renderTable();buildChart()}
+
+merge([]);renderAll();
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',buildChart);
+ new MutationObserver(buildChart).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
+
+// ---------- lokale Speicherung ----------
+var LS='bmw-tracker-v1';
+function load(){try{return JSON.parse(localStorage.getItem(LS)||'[]')}catch(e){return []}}
+function save(d){try{localStorage.setItem(LS,JSON.stringify(d))}catch(e){}}
+merge(load());renderAll();
+var URL_DATA='https://raw.githubusercontent.com/olga-wiz/bmw-tracker-data/main/data.json';
+var CK='bmw-tracker-remote-v1';
+function applyRemote(d){
+  if(!d||!d.quarters||!d.quarters.length)return false;
+  BASE=d.quarters.map(function(x){return Object.assign({},x,{id:x.y+'-'+x.q})});
+  meta=Object.assign({},META,{published:d.updated||META.published,source:d.source||META.source,
+    guidance:Object.assign({},META.guidance,d.guidance||{}),fcfTarget:d.fcfTarget||META.fcfTarget,fcfYtd:d.fcfYtd||META.fcfYtd});
+  merge(load());renderAll();return true;
+}
+function setSrc(t){var el=document.getElementById('src');if(el)el.textContent=t}
+function sync(){
+  fetch(URL_DATA+'?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
+    if(applyRemote(d)){live=true;renderAll();try{localStorage.setItem(CK,JSON.stringify(d))}catch(e){}setSrc('Automatisch aktualisiert: '+new Date().toLocaleString('de-DE'))}
+  }).catch(function(){setSrc('Offline oder Quelle nicht erreichbar – letzter gespeicherter Stand')});
+}
+try{var cd=JSON.parse(localStorage.getItem(CK)||'null');if(cd)applyRemote(cd)}catch(e){}
+sync();setInterval(sync,1800000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)sync()});
+document.getElementById('f').addEventListener('submit',function(e){
+  e.preventDefault();var f=e.target,v=function(n){return f[n].value===''?null:Number(f[n].value)};
+  var d=load().filter(function(x){return !(x.y===v('y')&&x.q===v('q'))});
+  d.push({y:v('y'),q:v('q'),margin:v('margin'),eu:v('eu'),cn:v('cn'),euBev:v('euBev')});
+  save(d);if(v('ytd')!=null){meta=Object.assign({},meta,{guidance:Object.assign({},meta.guidance,{ytd:v('ytd')})})}
+  merge(d);renderAll();f.reset();});
+})();
+</script>
+</body></html>
