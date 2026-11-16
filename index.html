@@ -84,6 +84,7 @@ body{margin:0}
   <section class="panel">
     <h2>Ableitung aus den Zahlen</h2>
     <p class="verdict" id="verdict"></p>
+    <div class="card" id="daily" hidden style="margin:0 0 12px"><h3 id="dailyh">Tagesaktuelle Ableitung</h3><ul id="dailyul" style="margin:6px 0;padding-left:18px"></ul><p id="dailyimp" style="font-weight:500"></p><p class="note" id="dailysrc" style="margin-top:6px"></p></div>
     <div class="card" id="agentsum" hidden style="margin:0 0 12px"><h3>Zusammenfassung des Prüf-Agenten</h3><p id="agentsumtxt"></p><p class="note" id="agentsumdate" style="margin-top:6px"></p></div>
     <div class="ins" id="insights"></div>
     <p class="note">Die Ableitung wird bei jedem Laden aus den aktuellen Datenzeilen neu berechnet – sie ist eine regelbasierte Auswertung, keine Anlageempfehlung.</p>
@@ -275,8 +276,19 @@ function sync(){
     if(applyRemote(d)){live=true;renderAll();try{localStorage.setItem(CK,JSON.stringify(d))}catch(e){}setSrc('Automatisch aktualisiert: '+new Date().toLocaleString('de-DE'))}
   }).catch(function(){setSrc('Offline oder Quelle nicht erreichbar – letzter gespeicherter Stand')});
 }
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function syncDaily(){
+  fetch('https://raw.githubusercontent.com/olga-wiz/bmw-tracker-data/main/daily.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
+    if(!d||!d.bullets)return;
+    document.getElementById('dailyh').textContent='Tagesaktuelle Ableitung · '+(d.date?new Date(d.date).toLocaleDateString('de-DE',{day:'numeric',month:'long',year:'numeric'}):'');
+    document.getElementById('dailyul').innerHTML=d.bullets.map(function(b){return '<li>'+esc(b)+'</li>'}).join('');
+    document.getElementById('dailyimp').textContent=d.implication||'';
+    document.getElementById('dailysrc').innerHTML='Quellen: '+(d.sources||[]).map(function(x){var u=/^https:\/\//.test(x.url||'')?x.url:'#';return '<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:inherit">'+esc(x.name||u)+'</a>'}).join(' · ');
+    document.getElementById('daily').hidden=false;
+  }).catch(function(){});
+}
 try{var cd=JSON.parse(localStorage.getItem(CK)||'null');if(cd)applyRemote(cd)}catch(e){}
-sync();setInterval(sync,1800000);
+sync();syncDaily();setInterval(function(){sync();syncDaily()},1800000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)sync()});
 document.getElementById('f').addEventListener('submit',function(e){
   e.preventDefault();var f=e.target,v=function(n){return f[n].value===''?null:Number(f[n].value)};
