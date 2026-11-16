@@ -84,6 +84,7 @@ body{margin:0}
   <section class="panel">
     <h2>Ableitung aus den Zahlen</h2>
     <p class="verdict" id="verdict"></p>
+    <div class="card" id="agentsum" hidden style="margin:0 0 12px"><h3>Zusammenfassung des Prüf-Agenten</h3><p id="agentsumtxt"></p><p class="note" id="agentsumdate" style="margin-top:6px"></p></div>
     <div class="ins" id="insights"></div>
     <p class="note">Die Ableitung wird bei jedem Laden aus den aktuellen Datenzeilen neu berechnet – sie ist eine regelbasierte Auswertung, keine Anlageempfehlung.</p>
   </section>
@@ -262,6 +263,8 @@ function applyRemote(d){
   BASE=d.quarters.map(function(x){return Object.assign({},x,{id:x.y+'-'+x.q})});
   meta=Object.assign({},META,{published:d.updated||META.published,source:d.source||META.source,
     guidance:Object.assign({},META.guidance,d.guidance||{}),fcfTarget:d.fcfTarget||META.fcfTarget,fcfYtd:d.fcfYtd||META.fcfYtd});
+  var sm=document.getElementById('agentsum');
+  if(d.summary){document.getElementById('agentsumtxt').textContent=d.summary;document.getElementById('agentsumdate').textContent='Stand: '+(d.summaryDate||d.updated||'');sm.hidden=false}
   merge(load());renderAll();return true;
 }
 function setSrc(t){var el=document.getElementById('src');if(el)el.textContent=t}
