@@ -159,9 +159,10 @@ function renderStatus(){
 }
 function renderKpis(){
   var n=rows.length,L=rows[n-1],P=rows[n-5];
-  var dm=P&&P.margin!=null?L.margin-P.margin:null;
+  var MR=rows.filter(function(r){return r.margin!=null}),ML=MR[MR.length-1],MP=MR[MR.length-5];
+  var dm=MP&&ML?ML.margin-MP.margin:null;
   var items=[
-   ['EBIT-Marge Automobile '+ql(L),pct(L.margin),dm==null?'':pp(dm)+' ggü. Vorjahr',dm==null?0:dm],
+   ['EBIT-Marge Automobile '+ql(ML),pct(ML.margin),dm==null?'':pp(dm)+' ggü. Vorjahr',dm==null?0:dm],
    ['Auslieferungen Europa',fmt(L.eu),P?sgn(yoy(L.eu,P.eu))+' ggü. Vorjahr':'',P?yoy(L.eu,P.eu):0],
    ['Auslieferungen China',fmt(L.cn),P?sgn(yoy(L.cn,P.cn))+' ggü. Vorjahr':'',P?yoy(L.cn,P.cn):0]
   ];
@@ -175,12 +176,13 @@ function renderKpis(){
 function insights(){
   var n=rows.length,L=rows[n-1],P=rows[n-5],out=[];
   // 1 Marge
-  var dm=L.margin-P.margin, avg4=sumLast(rows,'margin',4)/4, avgP=0;
-  for(var i=n-8;i<n-4;i++)avgP+=rows[i].margin; avgP/=4;
-  out.push({t:dm<-1?'bad':dm<0?'warn':'good',h:'Margin unter Druck',p:ql(L)+': '+pct(L.margin)+' nach '+pct(P.margin)+' im Vorjahresquartal ('+pp(dm)+'). Vier-Quartals-Schnitt '+pct(avg4)+' gegenüber '+pct(avgP)+' in den vier Quartalen davor.'});
+  var MR=rows.filter(function(r){return r.margin!=null}),mn=MR.length,ML=MR[mn-1],MP=MR[mn-5];
+  var dm=ML.margin-MP.margin, avg4=(MR[mn-1].margin+MR[mn-2].margin+MR[mn-3].margin+MR[mn-4].margin)/4, avgP=0;
+  for(var i=mn-8;i<mn-4;i++)avgP+=MR[i].margin; avgP/=4;
+  out.push({t:dm<-1?'bad':dm<0?'warn':'good',h:'Margin unter Druck',p:ql(ML)+': '+pct(ML.margin)+' nach '+pct(MP.margin)+' im Vorjahresquartal ('+pp(dm)+'). Vier-Quartals-Schnitt '+pct(avg4)+' gegenüber '+pct(avgP)+' in den vier Quartalen davor.'});
   // 2 Regime
-  var cnt=0;for(var j=n-1;j>=0&&rows[j].margin<5.5;j--)cnt++;
-  var peak=Math.max.apply(null,rows.slice(-16).map(function(r){return r.margin}));
+  var cnt=0;for(var j=mn-1;j>=0&&MR[j].margin<5.5;j--)cnt++;
+  var peak=Math.max.apply(null,MR.slice(-16).map(function(r){return r.margin}));
   out.push({t:cnt>=4?'bad':'warn',h:'Seit '+cnt+' Quartalen unter 5,5 %',p:'Die Marge liegt im Schnitt weit unter dem Hoch der letzten vier Jahre ('+pct(peak)+'). Das Zielband des Konzerns lag zuletzt bei 5–7 %.'});
   // 3 Guidance
   var g=meta.guidance, impLo=4*g.lo-3*g.ytd, impHi=4*g.hi-3*g.ytd;
