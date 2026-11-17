@@ -279,9 +279,10 @@ function sync(){
 function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function syncDaily(){
   fetch('https://raw.githubusercontent.com/olga-wiz/bmw-tracker-data/main/daily.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
-    if(!d||!d.bullets)return;
+    if(!d||(!d.bullets&&!d.status))return;
     document.getElementById('dailyh').textContent='Tagesaktuelle Ableitung · '+(d.date?new Date(d.date).toLocaleDateString('de-DE',{day:'numeric',month:'long',year:'numeric'}):'');
-    document.getElementById('dailyul').innerHTML=d.bullets.map(function(b){return '<li>'+esc(b)+'</li>'}).join('');
+    if(d.status==='keine_belastbaren_quellen'){document.getElementById('dailyul').innerHTML='';document.getElementById('dailyimp').textContent='Heute keine Ableitung: keine ausreichend belastbaren Quellen. '+(d.note||'');document.getElementById('dailysrc').textContent='';document.getElementById('daily').hidden=false;return}
+    document.getElementById('dailyul').innerHTML=(d.bullets||[]).map(function(b){return '<li>'+esc(b)+'</li>'}).join('');
     document.getElementById('dailyimp').textContent=d.implication||'';
     document.getElementById('dailysrc').innerHTML='Quellen: '+(d.sources||[]).map(function(x){var u=/^https:\/\//.test(x.url||'')?x.url:'#';return '<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:inherit">'+esc(x.name||u)+'</a>'}).join(' · ');
     document.getElementById('daily').hidden=false;
